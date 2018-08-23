@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>reader</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,minimal-ui">
+    <meta name="format-detection" content="telephone=no">
+    <link rel="stylesheet" href="../css/demo.css">
+</head>
+<body>
+    <div id="root" class="container">
+
+        <!-- app操作响应隐藏层 -->
+        <div class="m-artical-action">
+            <!-- 唤出顶部返回栏和底部菜单栏 -->
+            <div class="artical-action-mid" id="action_mid"></div>
+        </div>
+
+        <!-- app顶部返回栏 -->
+        <div id="top-nav" class="top-nav">
+            <div class="icon-back"></div>
+            <div class="nav-title">返回书架</div>
+        </div>
+
+        <!-- 文章章节标题 -->
+        <div id="fiction_chapter_title"></div>
+
+        <!-- 文章阅读主体部分 -->
+        <div id="fiction_container" class="m-read-content">
+        </div>
+
+        <!-- 阅读 上一章 下一章 -->
+        <div class="m-button-bar">
+            <ul class="u-tab">
+                <li id="prev_button">上一章</li><!--消除
+                空隙--><li id="next_button">下一章</li>
+            </ul>
+        </div>  
+
+        <!-- app操作面板 -->
+        <div class="nav-pannel" id="font-container">
+            <div class="child-mod">
+                <span>字号</span>
+                <button id="large-font" class="font-size-button">大</button>
+                <button id="small-font" class="font-size-button">小</button>
+            </div>
+            <div class="child-mod" id="bk-child-mod">
+                <span>背景</span>
+                <div class="bk-container" id="bk1">
+                    <div class="bk-container-current"></div>
+                </div>
+                <div class="bk-container" id="bk2"><div></div></div>
+                <div class="bk-container" id="bk3"><div></div></div>
+                <div class="bk-container" id="bk4"><div></div></div>
+                <div class="bk-container" id="bk5"><div></div></div>
+                <div class="bk-container" id="bk6"><div></div></div>
+            </div>
+        </div>
+            
+        <!-- app底部菜单栏 -->
+        <div class="bottom-nav" id="bottom-nav">
+            <div id="menu-button" class="item menu-button">
+                <div class="item-wrap">
+                    <div class="icon-menu"></div>
+                    <div class="icon-text">目录</div>
+                </div>
+            </div><!--              
+            --><div id="font-button" class="item">
+                <div class="item-wrap">
+                    <div class="icon-font" id="icon-font"></div>
+                    <div class="icon-text">字体</div>
+                </div>
+            </div><!--              
+            --><div id="day-night-button" class="item">
+                <div id="day-night" class="item-wrap">
+                    <!-- 白天：class="icon-day"= -->
+                    <div class="icon-night" id="day-night-icon"></div>
+                    <div class="icon-text" id="day-night-text">夜间</div>
+                </div>                
+            </div>
+        </div>
+    </div>
+
+    <script src="zepto.min.js"></script>
+    <script>window.jQuery=$;</script>
+    <script src="../js/jquery.base64.js"></script>
+    <script src="../js/jquery.jsonp.js"></script>
+
+    <script>
+          //实现本地存储功能
+          var Util=(function(){            
+            var prefix='html5_reader_';
+            var StorageGetter=function(key){
+                return localStorage.getItem(prefix+key);
+            };
+            var StorageSetter=function(key,val){
+                return localStorage.setItem(prefix+key,JSON.stringify(val));
+            };
+
+            // 根据 url 获取数据进行进行解码 并返回最终内容
+            var getBSONP=function(url,callback){
+                return $.jsonp({
+                    url:url,
+                    cache:true,
+                    // 添加到 get 请求中的回调函数 此处 callback 是 $.jsonp()函数中的 callback
+                    callback:'duokan_fiction_chapter',
+                    success:function(result){
+                        // debugger;
+                        var data=$.base64.decode(result);
+                        var json=decodeURIComponent(escape(data));
+                        // 此处 callback 是getBSONP函数参数中传入的 callback
+                        callback(json);
+                    }
+                })
+            }
+
+            return {
+                getBSONP:getBSONP,
+                StorageGetter:StorageGetter,
+                StorageSetter:StorageSetter
+            }
+            // 清除可使用：localStorage.removeItem('items');
+        })();
+
+          var Dom={
+              top_nav:$('#top-nav'),
+              bottom_nav:$('#bottom-nav'),
+              font_container:$('#font-container'),
+              icon_font:$('#icon-font'),
+              bk_child_mod:$('#bk-child-mod'),
+              m_read_content:$('.m-read-content'),
+              day_night_icon:$('#day-night-icon'),
+              day_night_text:$('#day-night-text')
+          };
+          var Win=$(window),Doc=$(document);          
+          var FictionContainer=$('#fiction_container');
+          var DocumentBody=$(document.body);
+          var readerModel,readerUI;
+
+          // localStorage 设置字体大小
+          var initFontSize=Util.StorageGetter("font-size");
+          initFontSize=parseInt(initFontSize);
+          if(!initFontSize){initFontSize=18;}
+          FictionContainer.css("fontSize",initFontSize);
+
+          // localStorage 设置背景颜色
+          var initBackgroundColor=Util.StorageGetter("background-color");
+          initBackgroundColor=JSON.parse(initBackgroundColor);
+          if(!initBackgroundColor){initBackgroundColor="#fff"}
+          DocumentBody.css("background",initBackgroundColor);
+
+          // localStorage 设置字体颜色
+          var initFontColor=Util.StorageGetter("font-color");
+          initFontColor=JSON.parse(initFontColor);
+          if(!initFontColor){initFontColor="#000"}
+          Dom.m_read_content.css("color",initFontColor);
+          
+          //为了方便更改 visibility 属性值,给zepto对象添加方法
+          $.fn.domShow=function(){
+              this.css('visibility','visible');
+          }
+          $.fn.domHide=function(){
+              this.css('visibility','hidden');
+          }
+
+        // 用于设置背景颜色
+        function changebk(eleid){            
+            var ele=$("#"+eleid);
+            Dom.bk_child_mod.find(".bk-container-current").removeClass("bk-container-current");   
+            initBackgroundColor=ele.css("background");                                                        
+            ele.find("div").eq(0).addClass("bk-container-current");                                                             
+            $(document.body).css("background",initBackgroundColor);
+
+            // 最后两种背景色为暗色调 需要调节字体颜色
+            if(eleid=="bk5" || eleid=="bk6"){
+                Dom.m_read_content.css("color","#6f6f6f");
+            }
+            else{
+                Dom.m_read_content.css("color","#000");
+            }
+
+            // 白天颜色 和 夜间颜色 涉及图标按钮 需要单独处理
+            if(eleid=="bk1"){
+                Dom.day_night_icon.removeClass("icon-day").addClass("icon-night");
+                Dom.day_night_text.text("夜间");
+            }
+            if(eleid=="bk6"){
+                Dom.day_night_icon.removeClass("icon-night").addClass("icon-day");
+                Dom.day_night_text.text("白天");
+            }
+
+            // localStorage 存储字体和背景颜色
+            initFontColor= Dom.m_read_content.css("color");
+            Util.StorageSetter("font-color",initFontColor);
+            Util.StorageSetter("background-color",initBackgroundColor);
+        }
+
+            
+          //项目入口函数
+          function main(){         
+              // 取得服务器端文章数据 返回一个对象 其中的 init 函数接受一个用于展示页面信息的函数
+              readerModel=ReaderModel();
+              // 闭包 返回一个函数：该函数接受章节数据,并最终在页面中展示
+              readerUI=ReaderBaseFrame(FictionContainer);              
+              readerModel.init(function(data){readerUI(data);});
+              // 实现页面中的各种交互事件
+              EventHanlder();
+          }
+          main();
+
+
+          /**
+           *交互事件绑定
+           */
+          function EventHanlder(){
+              //点击页面中间空白处大部分区域的相关事件
+              $('#action_mid').click(function(){
+                  if(Dom.top_nav.css('visibility')==='hidden'){
+                    Dom.top_nav.domShow();
+                    Dom.bottom_nav.domShow();
+                  }
+                  else{
+                    Dom.top_nav.domHide();
+                    Dom.bottom_nav.domHide();
+                    Dom.font_container.domHide();
+                    Dom.icon_font.removeClass("icon-font-current");
+                  }
+              });
+
+              //滚动时，隐藏页面元素，恢复字体图标
+              Win.scroll(function(){
+                Dom.top_nav.domHide();
+                Dom.bottom_nav.domHide();
+                Dom.font_container.domHide();
+                Dom.icon_font.removeClass("icon-font-current");
+              });
+
+              //控制显示或隐藏设置栏(字体和背景)
+              $('#font-button').click(function(){
+                  if(Dom.font_container.css('visibility')==='hidden'){
+                      Dom.font_container.domShow();
+                      Dom.icon_font.addClass("icon-font-current");
+                  }
+                  else{
+                    Dom.font_container.domHide();
+                    Dom.icon_font.removeClass("icon-font-current");
+                  }                
+              });
+
+              //更换背景颜色
+              Dom.bk_child_mod.click(function(e){
+                  var eleid=e.target.id;
+                  if($(e.target).is(".bk-container")){                      
+                      changebk(eleid);
+                  }
+              });
+              
+              //白天和夜间模式
+              $('#day-night-button').click(function(e){               
+                  if(Dom.day_night_icon.attr("class")=="icon-night"){changebk("bk6");}
+                  else{ changebk("bk1");}
+              });
+
+              // 更改字体大小
+              // 获取字体大小 设置字体大小 localStorage 存储字体大小
+              $('#large-font').click(function(){
+                  if(initFontSize<20){initFontSize+=1;}
+                  FictionContainer.css("fontSize",initFontSize);
+                  Util.StorageSetter("font-size",initFontSize);
+              });
+              $('#small-font').click(function(){
+                if(initFontSize>12){initFontSize-=1;}
+                FictionContainer.css("fontSize",initFontSize);
+                Util.StorageSetter("font-size",initFontSize);                
+              });
+          }
+
+
+
+          /**
+           * 获取服务器端数据
+           * 实现和阅读器相关的数据交互的方法
+           * 返回 init 函数 
+           * */           
+           function ReaderModel(){
+               var Chapter_id;
+               var ChapterTotal;
+               var init=function(UIcallback){
+                   /*
+                   // 请求文章信息
+                   getFictionInfo(function(){
+                       // 根据章节 id 获取并解析章节信息
+                       getCurChapterContent(Chapter_id,function(data){
+                        // 根据章节信息 在页面中渲染具体内容
+                        UIcallback && UIcallback(data);
+                       })
+                   });
+                   */
+
+                   getFictionInfoPromise.then(function(){
+                       return getCurChapterContentPromise();
+                   }).then(function(data){
+                       UIcallback && UIcallback(data);
+                  });      
+               };
+
+               /*
+               var getFictionInfo=function(callback){
+                   var url='http://localhost/reader/data/chapter.json';
+                   $.get(url,function(data){
+                       // 获取章节信息之后回调
+                       Chapter_id=Util.StorageGetter('last_chapter_id');
+                       if(Chapter_id==null){//默认第一页
+                        Chapter_id=data.chapters[1].chapter_id;
+                       }                       
+                       ChapterTotal=data.chapters.length;
+                       callback && callback();
+                   },'json');
+               };
+               */
+               // 使用 promise 更改上述函数
+               var getFictionInfoPromise=new Promise(function(resolve,reject){                   
+                    // var url='http://localhost/reader/data/chapter.json';
+                    var url='../data/chapter.json';
+                    $.get(url,function(data){
+                        // 获取章节信息之后回调
+                        Chapter_id=Util.StorageGetter('last_chapter_id');
+                        if(Chapter_id==null){//默认第一页
+                            Chapter_id=data.chapters[1].chapter_id;
+                        }                       
+                        ChapterTotal=data.chapters.length;
+                        if(data.result==0){
+                            resolve();
+                        }
+                        else{
+                            reject();
+                        }
+                    },'json');
+               });
+
+               /**
+                * 成功返回的数据
+                * {msg:"成功",result:0,jsonp:url(获取内容的地址)}
+                * */
+                /*
+               var getCurChapterContent=function(chapter_id,callback){
+                   var url='http://localhost/reader/data/data'+chapter_id+'.json';
+                   $.get(url,function(data){
+                       //返回成功的数据
+                       if(data.result==0){
+                           //获取数据中的 jsonp 的值 url
+                           var url=data.jsonp;
+                           // 将取得的非最终数据解析后，传给回调函数(UIcallback)处理
+                           Util.getBSONP(url,function(data){
+                               callback && callback(data);
+                           });
+                       }
+                   },'json');
+               };
+               */               
+               // 使用 promise 更改上述函数
+               var getCurChapterContentPromise=function(){
+                    return new Promise(function(resolve,reject){
+                        var url='../data/data'+Chapter_id+'.json';
+                        $.get(url,function(data){
+                            //返回成功的数据
+                            if(data.result==0){
+                                //获取数据中的 jsonp 的值 url
+                                var url=data.jsonp;
+                                // 将取得的数据解析后，传给回调函数处理
+                                Util.getBSONP(url,function(data){
+                                    resolve(data);
+                                });
+                            }
+                            else{
+                                reject({msg:"error:fail to get data"});
+                            }
+                        },'json');
+                });
+               };
+
+               var preChaper=function(UIcallback){
+                   Chapter_id=parseInt(Chapter_id,10);
+                   // 判断是否为首页
+                   if(Chapter_id==1){
+                       return;
+                   }
+                   Chapter_id-=1;
+                   Util.StorageSetter('last_chapter_id',Chapter_id);
+                   getCurChapterContentPromise().then(function(data){
+                    UIcallback && UIcallback(data);
+                   });
+                //    getCurChapterContent(Chapter_id,UIcallback);
+               };
+
+               var nextChapter=function(UIcallback){
+                   Chapter_id=parseInt(Chapter_id,10);
+                   // 判断是否为尾页 本地只有4个data.json文件,所以只能翻到第四页
+                   if(Chapter_id==ChapterTotal || Chapter_id==4){
+                       return;
+                   }
+                   Chapter_id+=1;
+                   Util.StorageSetter('last_chapter_id',Chapter_id);
+                   getCurChapterContentPromise().then(function(data){
+                    UIcallback && UIcallback(data);
+                   });
+                //    getCurChapterContent(Chapter_id,UIcallback);
+               }
+
+               return {
+                   init:init,
+                   preChaper:preChaper,
+                   nextChapter:nextChapter
+               };
+           }
+    
+           
+          /**
+           * 渲染基本的UI结构
+           * 显示获取到的文章以及标题内容
+           * 闭包 返回一个函数：接受章节数据 数据格式为  json 
+           * */   
+          function ReaderBaseFrame(container){
+
+              //根据获取的数据拼接页面
+              function parseChapterData(jsonData){
+                  var jsonObj=JSON.parse(jsonData);
+                  var html='<h4>'+jsonObj.t+'</h4>';
+                  for(var i=0,j=jsonObj.p.length;i<j;i++){
+                      html+='<p>'+jsonObj.p[i]+'</p>';
+                  }
+                  return html;
+              }
+
+              return function(data){
+                  container.html(parseChapterData(data));
+              }
+          }
+
+          $('#prev_button').click(function(){
+              readerModel.preChaper(function(data){
+                  readerUI(data);
+              });
+          });
+          $('#next_button').click(function(){
+              readerModel.nextChapter(function(data){
+                  readerUI(data);
+              });
+          });
+
+    </script>
+
+</body>
+</html>
