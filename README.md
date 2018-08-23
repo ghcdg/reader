@@ -40,7 +40,7 @@ xammp 包含 htdocs ，将下载好的 reader 文件放在 htdocs 文件中
 
 #### readme.md添加图片
 
-![image](此处为github中查看图片时的url地址)
+" \!\[image]\(此处为github中查看图片时的url地址) "
 
-如：![image](https://github.com/ghcdg/repository/images/test.png)
+如：" \!\[image]\(https://github.com/ghcdg/reader/blob/master/images/app.PNG) "
 
